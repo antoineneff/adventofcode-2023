@@ -4,6 +4,7 @@ fn main() {
     let input = fs::read_to_string("./inputs/10").expect("Input should exist");
 
     part_one(&input);
+    part_two(&input);
 }
 
 fn part_one(input: &str) {
@@ -18,6 +19,27 @@ fn part_one(input: &str) {
     let farthest_point = steps / 2;
 
     println!("Part 1: {farthest_point}")
+}
+
+fn part_two(input: &str) {
+    let maze = Maze::new(input);
+    let (mut dir, mut tile) = maze.next(None, &maze.start);
+    let mut edges = vec![tile];
+    while tile.value != 'S' {
+        (dir, tile) = maze.next(Some(dir), tile);
+        edges.push(tile);
+    }
+
+    let mut count = 0;
+    for row in &maze.tiles {
+        for t in row {
+            if maze.is_tile_in_loop(t, &edges) {
+                count += 1;
+            }
+        }
+    }
+
+    println!("Part 2: {count}")
 }
 
 #[derive(Debug)]
@@ -84,6 +106,40 @@ impl Maze {
             }
         }
     }
+
+    fn is_tile_in_loop(&self, tile: &Tile, edges: &Vec<&Tile>) -> bool {
+        if tile.is_edge(edges) {
+            false
+        } else {
+            let mut is_in = false;
+            let mut previous_intersection_direction = None;
+            for row_tile in &self.tiles[tile.row] {
+                if tile.is_same(&row_tile) {
+                    break;
+                } else if row_tile.is_edge(edges) {
+                    let tile_directions = row_tile.directions();
+                    if tile_directions.contains(&Direction::North)
+                        && tile_directions.contains(&Direction::South)
+                    {
+                        is_in = !is_in;
+                    } else if tile_directions.contains(&Direction::North) {
+                        if let Some(Direction::South) = previous_intersection_direction {
+                            is_in = !is_in;
+                        } else {
+                            previous_intersection_direction = Some(Direction::North);
+                        }
+                    } else if tile_directions.contains(&Direction::South) {
+                        if let Some(Direction::North) = previous_intersection_direction {
+                            is_in = !is_in;
+                        } else {
+                            previous_intersection_direction = Some(Direction::South);
+                        }
+                    }
+                }
+            }
+            is_in
+        }
+    }
 }
 
 impl Tile {
@@ -98,5 +154,13 @@ impl Tile {
             'S' => vec![Direction::North, Direction::South],
             _ => vec![],
         }
+    }
+
+    fn is_edge(&self, edges: &Vec<&Tile>) -> bool {
+        edges.iter().any(|&e| e.is_same(self))
+    }
+
+    fn is_same(&self, tile: &Tile) -> bool {
+        tile.row == self.row && tile.col == self.col
     }
 }
